@@ -17,11 +17,11 @@ import (
 
 const subsidy = 10
 
-// Transaction represents a Bitcoin transaction
+// 交易的数据结构
 type Transaction struct {
-	ID   []byte
-	Vin  []TXInput
-	Vout []TXOutput
+	ID   []byte     `json:"id"`
+	Vin  []TXInput  `json:"vin"`
+	Vout []TXOutput `json:"vout"`
 }
 
 // IsCoinbase checks whether the transaction is coinbase coinbase 交易只有一笔输入，其引用的交易ID为0，引用的输出下标为-1

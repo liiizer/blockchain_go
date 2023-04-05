@@ -3,18 +3,19 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"log"
 	"time"
 )
 
-// Block represents a block in the blockchain
+// 区块数据结构
 type Block struct {
-	Timestamp     int64
-	Transactions  []*Transaction
-	PrevBlockHash []byte
-	Hash          []byte
-	Nonce         int
-	Height        int
+	Timestamp     int64          `json:"timestamp"`
+	Transactions  []*Transaction `json:"transactions"`
+	PrevBlockHash []byte         `json:"prevBlockHash"`
+	Hash          []byte         `json:"hash"`
+	Nonce         int            `json:"nonce"`
+	Height        int            `json:"height"`
 }
 
 // 创建新区块
@@ -46,7 +47,7 @@ func (b *Block) HashTransactions() []byte {
 	return mTree.RootNode.Data
 }
 
-// Serialize serializes the block
+// 序列化
 func (b *Block) Serialize() []byte {
 	var result bytes.Buffer
 	encoder := gob.NewEncoder(&result)
@@ -59,7 +60,7 @@ func (b *Block) Serialize() []byte {
 	return result.Bytes()
 }
 
-// DeserializeBlock deserializes a block
+// 反序列化
 func DeserializeBlock(d []byte) *Block {
 	var block Block
 
@@ -70,4 +71,9 @@ func DeserializeBlock(d []byte) *Block {
 	}
 
 	return &block
+}
+
+// 将区块数据序列化为 JSON 格式
+func (b *Block) ToJSON() ([]byte, error) {
+	return json.Marshal(b)
 }

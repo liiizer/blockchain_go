@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+
+	"github.com/rs/cors"
 )
 
 const protocol = "tcp"
@@ -17,7 +21,7 @@ const commandLength = 12
 
 var nodeAddress string
 var miningAddress string
-var knownNodes = []string{"localhost:3000"}
+var knownNodes = []string{"localhost:8888"}
 var blocksInTransit = [][]byte{}
 var mempool = make(map[string]Transaction)
 
@@ -338,12 +342,16 @@ func handleTx(request []byte, bc *Blockchain) {
 				sendInv(node, "tx", [][]byte{tx.ID})
 			}
 		}
+		// 在转发交易之后，从中心节点的内存池中删除已转发的交易
+		txID := hex.EncodeToString(tx.ID)
+		delete(mempool, txID)
 	} else {
 		//若是矿工结点收到交易，若内存池中交易数量足够，则准备开始挖矿
 		if len(mempool) >= 2 && len(miningAddress) > 0 {
 		MineTransactions:
 			var txs []*Transaction
 
+			// 遍历内存池，找出所有有效的交易
 			for id := range mempool {
 				tx := mempool[id]
 				if bc.VerifyTransaction(&tx) {
@@ -352,19 +360,23 @@ func handleTx(request []byte, bc *Blockchain) {
 			}
 
 			if len(txs) == 0 {
+				// 没有有效的交易可以打包，等待新的交易到来
 				fmt.Println("All transactions are invalid! Waiting for new ones...")
 				return
 			}
 
+			// 创建矿工的 coinbase 交易，将其加入到队列中
 			cbTx := NewCoinbaseTX(miningAddress, "")
 			txs = append([]*Transaction{cbTx}, txs...)
 
+			// 挖掘新块并更新UTXO集
 			newBlock := bc.MineBlock(txs)
 			UTXOSet := UTXOSet{bc}
 			UTXOSet.Update(newBlock)
 
 			fmt.Println("New block is mined!")
 
+			// 从内存池中删除已经打包的交易
 			for _, tx := range txs {
 				txID := hex.EncodeToString(tx.ID)
 				delete(mempool, txID)
@@ -446,13 +458,26 @@ func handleConnection(conn net.Conn, bc *Blockchain) {
 func StartServer(nodeID, minerAddress string, bc *Blockchain) {
 	nodeAddress = fmt.Sprintf("localhost:%s", nodeID)
 	miningAddress = minerAddress
+
+	// 启动 HTTP 服务器
+	go handleHTTP(bc)
+
 	ln, err := net.Listen(protocol, nodeAddress)
 	if err != nil {
 		log.Panic(err)
 	}
 	defer ln.Close()
 
-	// bc := NewBlockchain(nodeID)
+	//若中心结点内存池中有交易，将其转发给矿工结点
+	// if nodeAddress == knownNodes[0] && len(mempool) != 0 {
+	// 	for _, node := range knownNodes {
+	// 		if node != nodeAddress {
+	// 			for _, tx := range mempool {
+	// 				sendInv(node, "tx", [][]byte{tx.ID})
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	//若不是中心结点，向中心结点发起连接
 	if nodeAddress != knownNodes[0] {
@@ -466,6 +491,51 @@ func StartServer(nodeID, minerAddress string, bc *Blockchain) {
 		}
 		go handleConnection(conn, bc)
 	}
+}
+
+//处理前端发送的http请求
+func handleHTTP(bc *Blockchain) {
+	http.HandleFunc("/api/blocks", func(w http.ResponseWriter, r *http.Request) {
+		// 处理区块链数据请求
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		blocks := bc.GetAllBlocks()
+		resp := struct {
+			Blocks []*Block `json:"blocks"`
+		}{blocks}
+
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
+			log.Printf("failed to marshal response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write(respBytes)
+		if err != nil {
+			log.Printf("failed to write response: %v", err)
+		}
+	})
+
+	http.HandleFunc("/transaction", func(w http.ResponseWriter, r *http.Request) {
+		// 处理交易数据请求
+
+	})
+
+	//处理跨域问题
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:8080"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	})
+
+	handler := c.Handler(http.DefaultServeMux)
+
+	http.ListenAndServe("localhost:8000", handler)
 }
 
 func gobEncode(data interface{}) []byte {

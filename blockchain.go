@@ -254,15 +254,31 @@ func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 	return block, nil
 }
 
-// GetBlockHashes returns a list of hashes of all the blocks in the chain
+// 获取所有区块哈希
 func (bc *Blockchain) GetBlockHashes() [][]byte {
 	var blocks [][]byte
 	bci := bc.Iterator()
 
 	for {
 		block := bci.Next()
-
 		blocks = append(blocks, block.Hash)
+
+		if len(block.PrevBlockHash) == 0 {
+			break
+		}
+	}
+
+	return blocks
+}
+
+//获取所有区块,返回给前端
+func (bc *Blockchain) GetAllBlocks() []*Block {
+	var blocks []*Block
+	bci := bc.Iterator()
+
+	for {
+		block := bci.Next()
+		blocks = append(blocks, block)
 
 		if len(block.PrevBlockHash) == 0 {
 			break

@@ -6,10 +6,10 @@ import (
 	"log"
 )
 
-// TXOutput represents a transaction output
+// 交易输出数据结构
 type TXOutput struct {
-	Value      int
-	PubKeyHash []byte
+	Value      int    `json:"value"`
+	PubKeyHash []byte `json:"pubkeyhash"`
 }
 
 // Lock signs the output 把地址转换为公钥哈希

@@ -236,7 +236,7 @@ func (cli *CLI) Run() {
 		case "usage":
 			cli.printUsage()
 		case "exit":
-			os.Exit(1)
+			return
 		default:
 			fmt.Printf("Unknown command: %s\n", commandArgs[0])
 			continue

@@ -5,19 +5,19 @@ import (
 	"math"
 )
 
-// MerkleTree represent a Merkle tree
+// 默克尔树结构
 type MerkleTree struct {
 	RootNode *MerkleNode
 }
 
-// MerkleNode represent a Merkle tree node
+// 默克尔树结点结构
 type MerkleNode struct {
 	Left  *MerkleNode
 	Right *MerkleNode
 	Data  []byte
 }
 
-// NewMerkleTree creates a new Merkle tree from a sequence of data
+// 构建默克尔树
 func NewMerkleTree(data [][]byte) *MerkleTree {
 	var nodes []MerkleNode
 
@@ -31,9 +31,9 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 	}
 
 	//默克尔树高度为log(len(data))向上取整+1
-	levelNum := int(math.Ceil(math.Log2(float64(len(data)))))
+	levelNum := math.Ceil(math.Log2(float64(len(data))))
 
-	for i := 0; i < levelNum; i++ {
+	for i := 0; i < int(levelNum); i++ {
 		var newLevel []MerkleNode
 
 		//对每一层都进行判断，结点数为单数要添加一个虚节点
@@ -54,7 +54,7 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 	return &mTree
 }
 
-// NewMerkleNode creates a new Merkle tree node
+// 创建默克尔树结点
 func NewMerkleNode(left, right *MerkleNode, data []byte) *MerkleNode {
 	mNode := MerkleNode{}
 
